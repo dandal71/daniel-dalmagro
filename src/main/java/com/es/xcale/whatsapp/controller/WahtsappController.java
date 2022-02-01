@@ -35,21 +35,28 @@ public class WahtsappController {
      * @param grupoId
      * @param mensaje
      */
-    @MessageMapping("/ws/{grupoId}/enviarMensaje")
+    //Asegura que si el cliente envia un mensaes a ws/{grupoId}/enviarMensaje, este método será ejecutado.
+    //Tener en cuenta que se agregar el prefijo ws-app 
+    @MessageMapping("/ws/{grupoId}/enviarMensaje") 
     public void sendMessage(@DestinationVariable Long grupoId, @Payload Mensaje mensaje) {
         log.info("GrupoID: " + grupoId +" Mensaje recibido "+ mensaje.getContenido());
-        messagingTemplate.convertAndSend(String.format("/ws-grupo/%s", grupoId), mensaje);
 
-        //Persiste el usuario en el grupo
-        Optional<Grupo> optGrupo = this.grupoService.findById(grupoId);
-        optGrupo.ifPresent( g -> {
-                g.addMensaje(mensaje);
-                this.grupoService.save(g);
-        });
+        if (mensaje.getTipoMensaje().equals(Mensaje.TipoMensaje.CHAT)){
+            //El mensaje es enviado al broker de mensajes a /ws-grupo/{grupoId}
+            //Esto hace que todos los suscripto al ws-grupo/grupoId reciban el mensaje
+            messagingTemplate.convertAndSend(String.format("/ws/%s", grupoId), mensaje);
+
+            //Persiste el mensaje en el grupo
+            Optional<Grupo> optGrupo = this.grupoService.findById(grupoId);
+            optGrupo.ifPresent( g -> {
+                    g.addMensaje(mensaje);
+                    this.grupoService.save(g);
+            });
+        }        
     } 
 
     /**
-     * Agrega un usuario a un gruo
+     * Agrega un usuario a un grupo
      * 
      * @param grupoId Grupo al que se quiere contactar
      * @param mensaje Mensaje del tipo jon
